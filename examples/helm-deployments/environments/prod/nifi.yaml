@@ -1,0 +1,6 @@
+# Environment override. helm-values reads this file too; the # renovate:
+# hint shows the form for a value no manager can recognise on its own.
+replicaCount: 3
+registry:
+  # renovate: datasource=docker depName=apache/nifi-registry
+  tag: "1.23.2"

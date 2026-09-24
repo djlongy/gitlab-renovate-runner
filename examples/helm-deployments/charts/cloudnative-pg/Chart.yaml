@@ -1,0 +1,9 @@
+apiVersion: v2
+name: cloudnative-pg
+description: The CloudNativePG operator.
+type: application
+version: 0.1.0
+dependencies:
+  - name: cloudnative-pg
+    version: 0.21.0
+    repository: https://cloudnative-pg.github.io/charts

@@ -1,0 +1,33 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Helm deployment repositories: chart versions in Chart.yaml, image tags in values and environment files, and anything marked with a # renovate: comment.",
+  "helm-values": {
+    "managerFilePatterns": [
+      "/(^|/)values[^/]*\\.ya?ml$/",
+      "/(^|/)environments/.+\\.ya?ml$/"
+    ]
+  },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "A value on the line after '# renovate: datasource=<ds> depName=<name> [versioning=<v>]'.",
+      "managerFilePatterns": ["/\\.ya?ml$/"],
+      "matchStrings": [
+        "#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)(\\s+versioning=(?<versioning>\\S+))?\\s*\\n[^\\n]*?:\\s*[\"']?(?<currentValue>[^\"'\\s@]+)(@(?<currentDigest>sha256:[a-f0-9]+))?[\"']?"
+      ]
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "A wrapper chart's own version moves when anything it pins moves, so each merge is a new chart version.",
+      "matchManagers": ["helmv3", "helm-values"],
+      "bumpVersion": "patch"
+    },
+    {
+      "description": "Name the chart directory in the title: the same image is often pinned by several charts.",
+      "matchManagers": ["helmv3", "helm-values", "custom.regex"],
+      "commitMessageSuffix": "({{parentDir}})",
+      "additionalBranchPrefix": "{{parentDir}}-"
+    }
+  ]
+}

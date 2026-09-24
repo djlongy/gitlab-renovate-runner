@@ -1,0 +1,15 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "The runner keeps its own Renovate image current.",
+  "extends": ["config:recommended"],
+  "ignorePaths": ["examples/**"],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^\\.gitlab-ci\\.yml$/"],
+      "matchStrings": [
+        "#\\s*renovate:\\s*datasource=(?<datasource>\\S+)\\s+depName=(?<depName>\\S+)\\s*\\n\\s*RENOVATE_IMAGE:\\s*\\S+:(?<currentValue>[^\\s@]+)"
+      ]
+    }
+  ]
+}

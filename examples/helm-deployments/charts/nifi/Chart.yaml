@@ -1,0 +1,6 @@
+apiVersion: v2
+name: nifi
+description: Apache NiFi, a chart this site owns. There is no maintained upstream chart to wrap, so only the image is tracked.
+type: application
+version: 0.1.0
+appVersion: "1.23.2"

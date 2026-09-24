@@ -1,0 +1,9 @@
+# A Cluster for the prod environment. imageName is found by the regex manager
+# in this repository's renovate.json.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: app-db
+spec:
+  instances: 3
+  imageName: ghcr.io/cloudnative-pg/postgresql:16.2

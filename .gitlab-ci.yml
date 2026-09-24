@@ -1,0 +1,65 @@
+# Runs Renovate against every project the bot user can see (narrowed by
+# RENOVATE_AUTODISCOVER_FILTER). Triggered by a pipeline schedule, by
+# "Run pipeline", or by the API; a push only validates the presets.
+#
+# Required CI/CD variable: RENOVATE_TOKEN (masked). Everything else is in
+# README.md.
+
+variables:
+  # The -full image carries helm, pip, npm and the rest, so nothing is fetched
+  # from the internet at run time. Point this at your internal registry.
+  # renovate: datasource=docker depName=renovate/renovate
+  RENOVATE_IMAGE: renovate/renovate:44.112.3-full
+  RENOVATE_CONFIG_FILE: config.js
+  RENOVATE_BASE_DIR: $CI_PROJECT_DIR/.renovate
+  LOG_LEVEL: info
+
+stages:
+  - check
+  - renovate
+
+check:
+  stage: check
+  image:
+    name: $RENOVATE_IMAGE
+    entrypoint: [""]
+  script:
+    - renovate-config-validator config.js default.json helm.json
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+renovate:
+  stage: renovate
+  image:
+    name: $RENOVATE_IMAGE
+    entrypoint: [""]
+  # One run at a time: two runs would race on the same branches.
+  resource_group: renovate
+  timeout: 2h
+  cache:
+    key: renovate
+    paths:
+      - .renovate/cache/
+  before_script:
+    - |
+      if [ -z "${RENOVATE_TOKEN:-}" ]; then
+        echo "ERROR: RENOVATE_TOKEN is not set. Create a masked CI/CD variable holding" >&2
+        echo "       the bot user's token (scopes: api, read_repository, write_repository)." >&2
+        exit 1
+      fi
+    - |
+      # An internal CA, as a File variable, is appended to the image's public
+      # roots: SSL_CERT_FILE and GIT_SSL_CAINFO replace the trust store, so the
+      # internal CA alone would break TLS to every public upstream.
+      if [ -n "${CA_BUNDLE:-}" ]; then
+        mkdir -p "$RENOVATE_BASE_DIR"
+        cat /etc/ssl/certs/ca-certificates.crt "$CA_BUNDLE" > "$RENOVATE_BASE_DIR/ca-bundle.crt"
+        export NODE_EXTRA_CA_CERTS="$CA_BUNDLE" SSL_CERT_FILE="$RENOVATE_BASE_DIR/ca-bundle.crt"
+        export GIT_SSL_CAINFO="$SSL_CERT_FILE" REQUESTS_CA_BUNDLE="$SSL_CERT_FILE"
+      fi
+    - renovate --version
+  script:
+    - renovate
+  rules:
+    - if: $CI_PIPELINE_SOURCE =~ /^(schedule|web|api|trigger)$/

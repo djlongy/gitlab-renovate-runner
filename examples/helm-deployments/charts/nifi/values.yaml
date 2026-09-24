@@ -1,0 +1,7 @@
+image:
+  repository: apache/nifi
+  tag: "1.23.2"
+zookeeper:
+  image:
+    repository: zookeeper
+    tag: "3.8.4"

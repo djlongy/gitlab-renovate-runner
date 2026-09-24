@@ -1,0 +1,35 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Defaults for every onboarded project. A project's renovate.json extends local>GROUP/PROJECT (this repository).",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":rebaseStalePrs"
+  ],
+  "labels": [
+    "dependencies"
+  ],
+  "prConcurrentLimit": 10,
+  "prHourlyLimit": 0,
+  "minimumReleaseAge": "3 days",
+  "automerge": false,
+  "packageRules": [
+    {
+      "description": "A major version lands as its own merge request, never grouped.",
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "labels": [
+        "dependencies",
+        "major"
+      ]
+    },
+    {
+      "description": "Container registries (and OCI Helm charts, which use the same datasource) often publish no release timestamp, and internal mirrors almost never do. Renovate 42+ holds a timestamp-less release forever under minimumReleaseAge; for these, apply the cooldown only where a timestamp exists.",
+      "matchDatasources": [
+        "docker"
+      ],
+      "minimumReleaseAgeBehaviour": "timestamp-optional"
+    }
+  ]
+}
