@@ -1,0 +1,14 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "local>platform/renovate-runner",
+    "local>platform/renovate-runner:helm"
+  ],
+  "packageRules": [
+    {
+      "description": "Example: hold one dependency at its current major. Delete if unused.",
+      "matchPackageNames": ["docker.io/library/postgres"],
+      "allowedVersions": "<17"
+    }
+  ]
+}

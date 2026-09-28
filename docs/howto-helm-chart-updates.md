@@ -46,8 +46,15 @@ registry:
   lookups go upstream while the files keep the mirror prefix.
 - **Your mirror, queried directly.** Works only when the mirror lists upstream tags
   it has not cached (an Artifactory or Nexus remote does). A pull-through cache that
-  lists only what someone already pulled (a Harbor proxy project does) never shows a
-  newer tag, so Renovate reports nothing and the run is still green.
+  lists only what someone already pulled (a Harbor proxy project or a Quay proxy-cache
+  organisation does) never shows a newer tag, so Renovate reports nothing and the run
+  is still green. Measured on a Quay proxy-cache organisation for Docker Hub:
+  `tags/list` for `library/alpine` returned `["3.19"]`, the one tag pulled through
+  it, against 224 on Docker Hub.
+
+An alias key matches the registry as the file writes it. `FROM alpine:3.19` names no
+registry, so an alias keyed `docker.io` does not match it and its lookup still goes
+to Docker Hub; `FROM docker.io/library/alpine:3.19` does match.
 
 Credentials for a private registry or chart repository go in CI/CD variables named
 `DOCKER_<HOST>_USERNAME` / `_PASSWORD` or `HELM_<HOST>_USERNAME` / `_PASSWORD`, host

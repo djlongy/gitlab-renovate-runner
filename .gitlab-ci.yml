@@ -4,12 +4,16 @@
 #
 # Required CI/CD variable: RENOVATE_TOKEN (masked). Everything else is in
 # README.md.
+#
+# Any executor: a docker or kubernetes runner runs the jobs in RENOVATE_IMAGE; a
+# shell runner has no renovate binary, so run-local.sh runs the same command
+# inside RENOVATE_IMAGE with podman or docker.
 
 variables:
   # The -full image carries helm, pip, npm and the rest, so nothing is fetched
   # from the internet at run time. Point this at your internal registry.
   # renovate: datasource=docker depName=renovate/renovate
-  RENOVATE_IMAGE: renovate/renovate:44.112.3-full
+  RENOVATE_IMAGE: docker.io/renovate/renovate:44.112.3-full
   RENOVATE_CONFIG_FILE: config.js
   RENOVATE_BASE_DIR: $CI_PROJECT_DIR/.renovate
   LOG_LEVEL: info
@@ -24,7 +28,12 @@ check:
     name: $RENOVATE_IMAGE
     entrypoint: [""]
   script:
-    - renovate-config-validator config.js default.json helm.json
+    - |
+      if command -v renovate-config-validator >/dev/null 2>&1; then
+        renovate-config-validator config.js default.json helm.json
+      else
+        ./run-local.sh --validate
+      fi
   rules:
     - if: $CI_PIPELINE_SOURCE == "push"
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -44,22 +53,28 @@ renovate:
   before_script:
     - |
       if [ -z "${RENOVATE_TOKEN:-}" ]; then
-        echo "ERROR: RENOVATE_TOKEN is not set. Create a masked CI/CD variable holding" >&2
-        echo "       the bot user's token (scopes: api, read_repository, write_repository)." >&2
+        echo "ERROR: RENOVATE_TOKEN is not set. Create a masked CI/CD variable holding a" >&2
+        echo "       group access token: role Developer, scopes api and write_repository." >&2
         exit 1
       fi
     - |
       # An internal CA, as a File variable, is appended to the image's public
       # roots: SSL_CERT_FILE and GIT_SSL_CAINFO replace the trust store, so the
-      # internal CA alone would break TLS to every public upstream.
-      if [ -n "${CA_BUNDLE:-}" ]; then
+      # internal CA alone would break TLS to every public upstream. On a shell
+      # runner run-local.sh does the same inside the container.
+      if [ -n "${CA_BUNDLE:-}" ] && command -v renovate >/dev/null 2>&1; then
         mkdir -p "$RENOVATE_BASE_DIR"
         cat /etc/ssl/certs/ca-certificates.crt "$CA_BUNDLE" > "$RENOVATE_BASE_DIR/ca-bundle.crt"
         export NODE_EXTRA_CA_CERTS="$CA_BUNDLE" SSL_CERT_FILE="$RENOVATE_BASE_DIR/ca-bundle.crt"
         export GIT_SSL_CAINFO="$SSL_CERT_FILE" REQUESTS_CA_BUNDLE="$SSL_CERT_FILE"
       fi
-    - renovate --version
   script:
-    - renovate
+    - |
+      if command -v renovate >/dev/null 2>&1; then
+        renovate --version
+        renovate
+      else
+        ./run-local.sh
+      fi
   rules:
     - if: $CI_PIPELINE_SOURCE =~ /^(schedule|web|api|trigger)$/

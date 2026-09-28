@@ -22,14 +22,29 @@ function jsonVariable(name, fallback) {
 // The project holding default.json and helm.json. In CI it is this project;
 // run from a workstation, set RENOVATE_PRESET_REPO to its path.
 const presetRepo = env.RENOVATE_PRESET_REPO || env.CI_PROJECT_PATH;
+const endpoint = env.RENOVATE_ENDPOINT || env.CI_API_V4_URL;
+
+// Hosts on private addresses that Renovate may call: the GitLab endpoint, plus
+// RENOVATE_INTERNAL_HOSTS (comma list, e.g. "registry.example.com,charts.example.com").
+// Anything else internal logs "HTTP request to an internal host"; name it here.
+const internalHosts = (env.RENOVATE_INTERNAL_HOSTS || '')
+  .split(',')
+  .map((host) => host.trim())
+  .filter(Boolean);
 
 module.exports = {
   platform: 'gitlab',
   // In CI the endpoint is this GitLab; elsewhere set RENOVATE_ENDPOINT.
-  ...(env.CI_API_V4_URL ? { endpoint: env.CI_API_V4_URL } : {}),
+  ...(endpoint ? { endpoint } : {}),
+
+  hostRules: [
+    ...(endpoint ? [{ matchHost: new URL(endpoint).hostname, allowInternal: true }] : []),
+    ...internalHosts.map((host) => ({ matchHost: host, allowInternal: true })),
+  ],
 
   // Every project the bot user is a member of, narrowed by
-  // RENOVATE_AUTODISCOVER_FILTER (for example "platform/**").
+  // RENOVATE_AUTODISCOVER_FILTER (for example "platform/**"). For one project
+  // only: RENOVATE_AUTODISCOVER=false and RENOVATE_REPOSITORIES=group/project.
   autodiscover: true,
   forkProcessing: 'disabled',
 
@@ -56,4 +71,8 @@ module.exports = {
 
   // Release notes come from github.com; most air-gapped sites cannot reach it.
   fetchChangeLogs: env.RENOVATE_FETCH_CHANGE_LOGS || 'off',
+
+  // default.json lets container tags without a release timestamp through (most
+  // registries publish none); Renovate reports each as a warning. It is expected.
+  logLevelRemap: [{ matchMessage: '/did not have a releaseTimestamp/', newLogLevel: 'info' }],
 };
