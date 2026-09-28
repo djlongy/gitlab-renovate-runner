@@ -25,8 +25,11 @@ const presetRepo = env.RENOVATE_PRESET_REPO || env.CI_PROJECT_PATH;
 const endpoint = env.RENOVATE_ENDPOINT || env.CI_API_V4_URL;
 
 // Hosts on private addresses that Renovate may call: the GitLab endpoint, plus
-// RENOVATE_INTERNAL_HOSTS (comma list, e.g. "registry.example.com,charts.example.com").
-// Anything else internal logs "HTTP request to an internal host"; name it here.
+// RENOVATE_INTERNAL_HOSTS (comma list, e.g. "registry.example.com,charts.example.com";
+// a bare name means https://, give http://host:port for anything else). Each
+// becomes a URL-prefix rule, which also covers presets fetched from that host.
+// Only global config can grant this: allowInternal in a project's renovate.json
+// is ignored.
 const internalHosts = (env.RENOVATE_INTERNAL_HOSTS || '')
   .split(',')
   .map((host) => host.trim())
@@ -38,8 +41,11 @@ module.exports = {
   ...(endpoint ? { endpoint } : {}),
 
   hostRules: [
-    ...(endpoint ? [{ matchHost: new URL(endpoint).hostname, allowInternal: true }] : []),
-    ...internalHosts.map((host) => ({ matchHost: host, allowInternal: true })),
+    ...(endpoint ? [{ matchHost: new URL(endpoint).origin, allowInternal: true }] : []),
+    ...internalHosts.map((host) => ({
+      matchHost: host.includes('://') ? host : `https://${host}`,
+      allowInternal: true,
+    })),
   ],
 
   // Every project the bot user is a member of, narrowed by

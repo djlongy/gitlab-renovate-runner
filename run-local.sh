@@ -87,6 +87,8 @@ if [ -n "${CONTAINER_ARGS:-}" ]; then
 fi
 # An internal CA is appended to the image's public roots inside the container:
 # SSL_CERT_FILE and GIT_SSL_CAINFO replace the trust store rather than add to it.
+# Renovate's lookups read NODE_EXTRA_CA_CERTS, git reads GIT_SSL_CAINFO, and
+# helm, go and pip read SSL_CERT_FILE. Renovate passes only these to its tools.
 # The mount is a private copy: SELinux refuses to relabel a system file such as
 # /etc/pki/tls/certs/ca-bundle.crt, and unlabelled the container cannot read it.
 command=(renovate)
@@ -97,7 +99,7 @@ if [ -n "${CA_BUNDLE:-}" ]; then
   cp "$CA_BUNDLE" "$ca_dir/internal-ca.crt"
   args+=(-v "$ca_dir/internal-ca.crt:/internal-ca.crt:ro,Z" -e NODE_EXTRA_CA_CERTS=/internal-ca.crt
          -e SSL_CERT_FILE=/tmp/ca-bundle.crt -e GIT_SSL_CAINFO=/tmp/ca-bundle.crt
-         -e REQUESTS_CA_BUNDLE=/tmp/ca-bundle.crt --entrypoint /bin/sh)
+         --entrypoint /bin/sh)
   command=(-c 'cat /etc/ssl/certs/ca-certificates.crt /internal-ca.crt > /tmp/ca-bundle.crt && exec renovate')
 fi
 # Pass through every RENOVATE_* variable, the proxy settings, and the

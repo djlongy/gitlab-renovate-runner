@@ -51,41 +51,41 @@ and `RENOVATE_INTERNAL_HOSTS` on a self-hosted estate with its own CA.
 
 ## Preconditions
 
-- The runner accepts `RENOVATE_IMAGE`. Mirror it into your registry if runners may
-  pull only from there.
-- Self-signed or internal CA: set `CA_BUNDLE`, never `NODE_TLS_REJECT_UNAUTHORIZED=0`.
-  `run-local.sh` mounts a copy, so a system file such as
-  `/etc/pki/tls/certs/ca-bundle.crt` works under SELinux.
+- The runner may pull `RENOVATE_IMAGE`. Mirror it where runners pull only from yours.
 - Each upstream chart repository or registry that `Chart.yaml` and values files name
   is reachable, or aliased to a mirror that lists the same tags.
 
 ## Behaviour
 
-- A scheduled, web, API or trigger pipeline runs `renovate`; a push runs only
-  `renovate-config-validator` over `config.js` and the presets.
-- A project without `renovate.json` gets an onboarding merge request that extends
-  `default.json` from this project.
-- `default.json`: `config:recommended`, a Dependency Dashboard issue, a 3-day
-  `minimumReleaseAge`, no automerge. Container tags without a release timestamp are
-  not held back, because most registries and mirrors publish none.
-- `helm.json`: `Chart.yaml` dependencies, image tags in `values*.yaml` and
-  `environments/**/*.yaml`, any value under a `# renovate: datasource=... depName=...`
-  comment, and a patch bump of a chart's own `version` with each change.
+- A schedule, web, API or trigger pipeline runs `renovate`. A push only validates.
+- A project without `renovate.json` gets an onboarding MR extending `default.json`.
+- `default.json` and `helm.json` state what each preset does in their `description`s.
 - One run at a time (`resource_group: renovate`); the package cache persists in the
   job cache between runs.
 
 ## Registry credentials
 
-Two different things need registry credentials, and they read different variables:
+- **Lookups**: Renovate never reads a `docker login` or `podman login`, only the
+  `DOCKER_<HOST>_USERNAME` / `_PASSWORD` pairs, one per registry host.
+- **Pulling `RENOVATE_IMAGE`**: `run-local.sh` logs in with the pair for the image's
+  host, so no manual `podman login`. A docker executor uses `DOCKER_AUTH_CONFIG`.
 
-- **Version lookups** by Renovate. Renovate makes every registry request itself and
-  never reads a `docker login` or `podman login`. It uses only the
-  `DOCKER_<HOST>_USERNAME` / `_PASSWORD` pairs (`detectHostRulesFromEnv` in
-  `config.js`), one pair per registry host.
-- **Pulling `RENOVATE_IMAGE`**. `run-local.sh` logs podman or docker in to the
-  image's registry with the `DOCKER_<HOST>` pair for that host, so one pair serves both
-  and no manual `podman login` is needed. A docker or kubernetes executor pulls the job
-  image with `DOCKER_AUTH_CONFIG` instead.
+## Internal hosts and certificates
+
+- Renovate warns on every request to a private address (`internalHostAccess`, default
+  `warn`, `block` from v45). `config.js` grants the GitLab endpoint and each
+  `RENOVATE_INTERNAL_HOSTS` entry as a URL prefix, which also covers presets served
+  from that host. A `DOCKER_<HOST>` pair grants its host too.
+- Only this global config can grant a host. `hostRules` with `allowInternal` in a
+  project's `renovate.json` fails validation and Renovate skips that project.
+- With no warning left in a run, set `RENOVATE_INTERNAL_HOST_ACCESS=block`. Avoid
+  `allow`: any project could reach any internal service, and v46 removes it.
+- `CA_BUNDLE` is appended to the image's public roots and reaches Renovate
+  (`NODE_EXTRA_CA_CERTS`), git (`GIT_SSL_CAINFO`) and helm, go and pip
+  (`SSL_CERT_FILE`). Include intermediates. Java tooling reads its own keystore.
+  `run-local.sh` mounts a copy, so `/etc/pki/tls/certs/ca-bundle.crt` works under SELinux.
+- Never set `NODE_TLS_REJECT_UNAUTHORIZED=0`: it turns off verification for every host.
+  `hostRules[].httpsCertificateAuthority` covers Renovate's own requests, not git or helm.
 
 ## Out of scope
 
