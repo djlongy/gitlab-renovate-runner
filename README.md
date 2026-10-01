@@ -34,14 +34,8 @@ reads `.env` itself. Renovate reads any other `RENOVATE_*` option from the envir
 
 ## Usage
 
-A project opts in with a `renovate.json` on its default branch. Copy
-`examples/renovate.json` and change `platform/renovate-runner` to this project's path:
-
-```json
-{
-  "extends": ["local>platform/renovate-runner", "local>platform/renovate-runner:helm"]
-}
-```
+A project opts in with `examples/renovate.json` copied to its default branch as
+`renovate.json`, with `platform/renovate-runner` changed to this project's path.
 
 ## Minimum configuration
 
@@ -59,17 +53,23 @@ and `RENOVATE_INTERNAL_HOSTS` on a self-hosted estate with its own CA.
 
 - A schedule, web, API or trigger pipeline runs `renovate`. A push only validates.
 - A project without `renovate.json` gets an onboarding MR extending `default.json`.
-- `default.json` and `helm.json` state what each preset does in their `description`s.
 - One run at a time (`resource_group: renovate`); the package cache persists in the
   job cache between runs.
 
 ## Registry credentials
 
-- **Lookups** never read a `docker login`. Other hosts: `DOCKER_<HOST>_USERNAME` /
-  `_PASSWORD`, host upper-cased with `.` `-` `:` as `_` (`HELM_`, `PYPI_` alike). A bare
-  `DOCKER_USERNAME` would go to every registry, so `config.js` refuses it.
-- **Pulling `RENOVATE_IMAGE`**: `run-local.sh` logs in with the same credentials, so no
-  manual `podman login`. A docker executor uses `DOCKER_AUTH_CONFIG`.
+| Registries | Variables | Example |
+|---|---|---|
+| One private registry | `REGISTRY_HOST`, `REGISTRY_USERNAME`, `REGISTRY_PASSWORD` (masked) | `REGISTRY_HOST=quay.example.com` |
+| Each further registry | `DOCKER_<HOST>_USERNAME`, `DOCKER_<HOST>_PASSWORD` | `DOCKER_HARBOR_EXAMPLE_COM_USERNAME` |
+| Helm or PyPI repositories | `HELM_<HOST>_...`, `PYPI_<HOST>_...` | `HELM_CHARTS_EXAMPLE_COM_PASSWORD` |
+
+- Renovate never reads a `docker login`. `<HOST>` is the full host name, upper-cased,
+  with `.` `-` `:` as `_`: Renovate's own convention. A one-word host such as
+  `DOCKER_QUAY_USERNAME` is ignored as `Cannot parse env`, and a bare `DOCKER_USERNAME`
+  would go to every registry, docker.io included, so `config.js` stops the run.
+- The same credentials log `run-local.sh` in to pull `RENOVATE_IMAGE` and grant the host
+  as internal; no `podman login` needed. A docker executor pulls with `DOCKER_AUTH_CONFIG`.
 
 ## Internal hosts and certificates
 
