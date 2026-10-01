@@ -16,4 +16,4 @@ You know it works when step 5 prints `DRY-RUN: Would commit files to branch reno
 
 If it fails:
 - `WARN: HTTP request to an internal host`: add that host to `RENOVATE_INTERNAL_HOSTS` in `.env`, never to a project's `renovate.json`.
-- The image pull is refused: set the `DOCKER_<HOST>_USERNAME` and `DOCKER_<HOST>_PASSWORD` pair for `RENOVATE_IMAGE`'s registry in `.env`.
+- The image pull is refused: set `REGISTRY_HOST`, `REGISTRY_USERNAME` and `REGISTRY_PASSWORD` for `RENOVATE_IMAGE`'s registry in `.env`.

@@ -56,7 +56,8 @@ An alias key matches the registry as the file writes it. `FROM alpine:3.19` name
 registry, so an alias keyed `docker.io` does not match it and its lookup still goes
 to Docker Hub; `FROM docker.io/library/alpine:3.19` does match.
 
-Credentials for a private registry or chart repository go in CI/CD variables named
+Credentials for one private registry go in `REGISTRY_HOST`, `REGISTRY_USERNAME` and
+`REGISTRY_PASSWORD`. Other registries and chart repositories take CI/CD variables named
 `DOCKER_<HOST>_USERNAME` / `_PASSWORD` or `HELM_<HOST>_USERNAME` / `_PASSWORD`, host
 with dots and dashes as underscores (`DOCKER_REGISTRY_EXAMPLE_COM_USERNAME`).
 

@@ -43,14 +43,20 @@ engine=$(command -v podman || command -v docker || true)
 image=${RENOVATE_IMAGE:-}
 [ -n "$image" ] || image=$(sed -n 's/^  RENOVATE_IMAGE: //p' .gitlab-ci.yml)
 
-# Pulling the image: log in with the same DOCKER_<HOST>_USERNAME / _PASSWORD
-# pair Renovate uses for lookups on that host (host upper-cased, . - : as _).
-# Without the pair, an earlier `podman login` or a public image is used.
+# Pulling the image: log in with the credentials Renovate uses for lookups on that
+# host: REGISTRY_USERNAME / _PASSWORD when REGISTRY_HOST is the image's host, else
+# the DOCKER_<HOST>_USERNAME / _PASSWORD pair (host upper-cased, . - : as _).
+# Without either, an earlier `podman login` or a public image is used.
 registry=${image%%/*}
 case "$registry" in
   *.*|*:*|localhost)
     key=$(printf '%s' "$registry" | tr '.:-' '___' | tr '[:lower:]' '[:upper:]')
     user_var="DOCKER_${key}_USERNAME" pass_var="DOCKER_${key}_PASSWORD"
+    registry_host=${REGISTRY_HOST:-}
+    registry_host=${registry_host#https://}; registry_host=${registry_host#http://}; registry_host=${registry_host%/}
+    if [ "$registry_host" = "$registry" ]; then
+      user_var=REGISTRY_USERNAME pass_var=REGISTRY_PASSWORD
+    fi
     if [ -n "${!user_var:-}" ] && [ -n "${!pass_var:-}" ]; then
       printf '%s' "${!pass_var}" | "$engine" login --username "${!user_var}" --password-stdin "$registry" >/dev/null \
         || { echo "ERROR: $engine login to $registry as ${!user_var} failed ($user_var / $pass_var)" >&2; exit 1; }
@@ -102,12 +108,13 @@ if [ -n "${CA_BUNDLE:-}" ]; then
          --entrypoint /bin/sh)
   command=(-c 'cat /etc/ssl/certs/ca-certificates.crt /internal-ca.crt > /tmp/ca-bundle.crt && exec renovate')
 fi
-# Pass through every RENOVATE_* variable, the proxy settings, and the
+# Pass through every RENOVATE_* variable, the proxy settings, REGISTRY_* and the
 # <TYPE>_<HOST>_USERNAME / _PASSWORD registry credentials by name only.
 while IFS='=' read -r name _; do
   case "$name" in
     RENOVATE_CONFIG_FILE|RENOVATE_IMAGE) ;;
     RENOVATE_*|LOG_LEVEL|HTTP_PROXY|HTTPS_PROXY|NO_PROXY|http_proxy|https_proxy|no_proxy) args+=(-e "$name") ;;
+    REGISTRY_HOST|REGISTRY_USERNAME|REGISTRY_PASSWORD) args+=(-e "$name") ;;
     DOCKER_*_USERNAME|DOCKER_*_PASSWORD|HELM_*_USERNAME|HELM_*_PASSWORD|PYPI_*_USERNAME|PYPI_*_PASSWORD) args+=(-e "$name") ;;
   esac
 done < <(env)

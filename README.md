@@ -28,7 +28,7 @@ reads `.env` itself. Renovate reads any other `RENOVATE_*` option from the envir
 | When internal hosts | `RENOVATE_INTERNAL_HOSTS` | GitLab only | Comma list of other hosts on private addresses Renovate may call |
 | Optional | `HTTPS_PROXY`, `HTTP_PROXY`, `NO_PROXY` | none | Proxy for lookups. Put GitLab and internal hosts in `NO_PROXY` |
 | Optional | `RENOVATE_REGISTRY_ALIASES_JSON` | `{}` | Mirror prefix to upstream, e.g. `{"registry.example.com/dockerhub":"docker.io"}` |
-| When private registry | `DOCKER_<HOST>_USERNAME`, `DOCKER_<HOST>_PASSWORD` | none | Host upper-cased with `.` `-` `:` as `_`. `HELM_` and `PYPI_` work the same. See [Registry credentials](#registry-credentials) |
+| When private registry | `REGISTRY_HOST`, `REGISTRY_USERNAME`, `REGISTRY_PASSWORD` | none | One registry. More hosts: `DOCKER_<HOST>_USERNAME` / `_PASSWORD` pairs. See [Registry credentials](#registry-credentials) |
 | Optional | `RENOVATE_IMAGE` | `docker.io/renovate/renovate:<pinned>-full` | Job image. Point it at your registry |
 | Optional | `RENOVATE_DRY_RUN`, `LOG_LEVEL` | unset, `info` | `full` opens nothing. `debug` lists every dependency |
 
@@ -65,17 +65,18 @@ and `RENOVATE_INTERNAL_HOSTS` on a self-hosted estate with its own CA.
 
 ## Registry credentials
 
-- **Lookups**: Renovate never reads a `docker login` or `podman login`, only the
-  `DOCKER_<HOST>_USERNAME` / `_PASSWORD` pairs, one per registry host.
-- **Pulling `RENOVATE_IMAGE`**: `run-local.sh` logs in with the pair for the image's
-  host, so no manual `podman login`. A docker executor uses `DOCKER_AUTH_CONFIG`.
+- **Lookups** never read a `docker login`. Other hosts: `DOCKER_<HOST>_USERNAME` /
+  `_PASSWORD`, host upper-cased with `.` `-` `:` as `_` (`HELM_`, `PYPI_` alike). A bare
+  `DOCKER_USERNAME` would go to every registry, so `config.js` refuses it.
+- **Pulling `RENOVATE_IMAGE`**: `run-local.sh` logs in with the same credentials, so no
+  manual `podman login`. A docker executor uses `DOCKER_AUTH_CONFIG`.
 
 ## Internal hosts and certificates
 
 - Renovate warns on every request to a private address (`internalHostAccess`, default
   `warn`, `block` from v45). `config.js` grants the GitLab endpoint and each
   `RENOVATE_INTERNAL_HOSTS` entry as a URL prefix, which also covers presets served
-  from that host. A `DOCKER_<HOST>` pair grants its host too.
+  from that host. `REGISTRY_HOST` and a `DOCKER_<HOST>` pair grant their host too.
 - Only this global config can grant a host. `hostRules` with `allowInternal` in a
   project's `renovate.json` fails validation and Renovate skips that project.
 - With no warning left in a run, set `RENOVATE_INTERNAL_HOST_ACCESS=block`. Avoid
@@ -85,7 +86,6 @@ and `RENOVATE_INTERNAL_HOSTS` on a self-hosted estate with its own CA.
   (`SSL_CERT_FILE`). Include intermediates. Java tooling reads its own keystore.
   `run-local.sh` mounts a copy, so `/etc/pki/tls/certs/ca-bundle.crt` works under SELinux.
 - Never set `NODE_TLS_REJECT_UNAUTHORIZED=0`: it turns off verification for every host.
-  `hostRules[].httpsCertificateAuthority` covers Renovate's own requests, not git or helm.
 
 ## Out of scope
 
