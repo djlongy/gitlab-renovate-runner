@@ -35,6 +35,23 @@ const internalHosts = (env.RENOVATE_INTERNAL_HOSTS || '')
   .map((host) => host.trim())
   .filter(Boolean);
 
+// One registry by plain names: REGISTRY_HOST (e.g. quay.example.com, a port is
+// fine), REGISTRY_USERNAME, REGISTRY_PASSWORD. More registries, or Helm and PyPI
+// hosts, take the DOCKER_<HOST>_USERNAME / _PASSWORD pairs below. Renovate reads
+// a bare DOCKER_USERNAME / DOCKER_PASSWORD as a login for every registry,
+// docker.io included, so those two names are refused.
+for (const name of ['DOCKER_USERNAME', 'DOCKER_PASSWORD', 'DOCKER_TOKEN']) {
+  if (env[name]) {
+    throw new Error(`${name} would send this login to every registry; use REGISTRY_HOST, REGISTRY_USERNAME and REGISTRY_PASSWORD`);
+  }
+}
+const registry = ['REGISTRY_HOST', 'REGISTRY_USERNAME', 'REGISTRY_PASSWORD'];
+const registrySet = registry.filter((name) => env[name]);
+if (registrySet.length && registrySet.length !== registry.length) {
+  throw new Error(`set all of ${registry.join(', ')} or none; missing ${registry.filter((name) => !env[name]).join(', ')}`);
+}
+const registryHost = (env.REGISTRY_HOST || '').trim().replace(/^https?:\/\//, '').replace(/\/+$/, '');
+
 module.exports = {
   platform: 'gitlab',
   // In CI the endpoint is this GitLab; elsewhere set RENOVATE_ENDPOINT.
@@ -46,6 +63,13 @@ module.exports = {
       matchHost: host.includes('://') ? host : `https://${host}`,
       allowInternal: true,
     })),
+    ...(registryHost ? [{
+      hostType: 'docker',
+      matchHost: `https://${registryHost}`,
+      username: env.REGISTRY_USERNAME,
+      password: env.REGISTRY_PASSWORD,
+      allowInternal: true,
+    }] : []),
   ],
 
   // Every project the bot user is a member of, narrowed by
